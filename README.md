@@ -1,0 +1,1 @@
+najgorszy przedmiot
