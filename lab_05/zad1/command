@@ -1,0 +1,3 @@
+ls -l | grep 1 | grep main | wc -c | cat
+ls -l | grep 1 | grep main
+echo "lubie placki" | cat | cat | cat | cat | cat

@@ -1,0 +1,3 @@
+W wyniku użycia funkcji fork dziedziczony jest sposób obsługi danego sygnału (i maski), lecz nie sygnały oczekujące na przetworzenie przez proces.
+
+W wyniku użycia funkcji exec dziedziczona jest maska obsługi sygnałów oraz sygnały oczekujące.

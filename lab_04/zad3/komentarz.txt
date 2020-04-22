@@ -1,0 +1,8 @@
+niektóre z dodatkowych informacji przekazywanych w strukturze siginfo_t:
+- uid użytkownika będącego właścicielem procesu, który wysłał sygnał
+- union sigval pozwalające na wysłanie dodatkowej informacji procesowi wysyłającemu sygnał
+- lokalizacja pamięci związana z sygnałem
+
+Przygotowałem 2 scenariusze: 
+- wywołujący sygnał SIGSEGV przez próbę nadpisanie pamięci nienależącej do procesu (otrzymany uid: 0)
+- wysyłający dodatkową informację (liuczbę 42) poprzez dołączenie do sygnału union sigval (uid: 1000)

@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "preproc.h": "c",
+        "time.h": "c"
+    }
+}
