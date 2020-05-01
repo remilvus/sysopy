@@ -23,23 +23,11 @@
 #define DEBUG false
 #define LOG if(DEBUG)printf
 #define BUF_SIZE sizeof(MsgBuf) - sizeof(long)
-#define FRST_NUM 100
-#define SCND_NUM 1
-#define THRD_NUM 200
-#define PROJECT_ID 12345
-#define TOTAL_ORDERS 30
-#define MEM_SIZE 10
 
-// for semaphore managment
-#define FRST_WORKING 0
-#define SCND_WORKING 1
-#define ORDERS_LEFT 2
-#define FREE 4 // for unused idx in shared memory
-#define ORDERS_START 6
-#define PACKAGES_START 8
-#define SEM_SIZE 10
-#define THRD_WORKING 9
-#define RAND_CEIL 100
+#define SIGN 0
+#define BLOCK 1
+#define INTERLEAVED 2
+#define image_array int**
 
 #include <string.h>
 #include <stdio.h>
@@ -54,13 +42,20 @@
 #include <signal.h>
 #include <sys/shm.h>
 #include <sys/time.h>
-
+#include <pthread.h>
+#include <stdio.h>
 
 
 int error(char * msg){
     perror(msg);
     exit(-1);
 }
+
+typedef struct worker_info{
+    int id;
+    int workers;
+}worker_info;
+
 
 typedef union semun {
                int              val;    /* Value for SETVAL */
@@ -69,6 +64,7 @@ typedef union semun {
                struct seminfo  *__buf;  /* Buffer for IPC_INFO
                                            (Linux-specific) */
            }semum;
+
 
 
 #endif

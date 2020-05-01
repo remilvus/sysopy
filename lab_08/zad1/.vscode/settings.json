@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "preproc.h": "c",
+        "errno.h": "c",
+        "types.h": "c",
+        "time.h": "c"
+    }
+}

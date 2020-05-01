@@ -23,9 +23,9 @@
 #define DEBUG false
 #define LOG if(DEBUG)printf
 #define BUF_SIZE sizeof(MsgBuf) - sizeof(long)
-#define FRST_NUM 5
-#define SCND_NUM 2
-#define THRD_NUM 2
+#define FRST_NUM 100
+#define SCND_NUM 1
+#define THRD_NUM 200
 #define PROJECT_ID 12345
 #define TOTAL_ORDERS 30
 #define MEM_SIZE 10

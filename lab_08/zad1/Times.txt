@@ -1,0 +1,88 @@
+Testy zostały przeprowadzone dla obrazu "baboon.pgm" o rozmiarze 512x512 pixeli.
+Jako że wyniki są przez wątki zapisywane od razu do wynikowej tablicy, to najszybszy jest tryb 'sign', w którym wątki wzajemnie nie blokują sobie możliwości zapisywania.
+Wyniki:
+
+	Tryb: sign | Wątki: 1
+	Czas całkowity: 7296[us]
+		Wątek 140572982748928 | czas: 1371[us]
+
+	Tryb: block | Wątki: 1
+	Czas całkowity: 326799[us]
+		Wątek 140426301744896 | czas: 322213[us]
+
+	Tryb: interleaved | Wątki: 1
+	Czas całkowity: 367203[us]
+		Wątek 140661366114048 | czas: 355752[us]
+
+
+	Tryb: sign | Wątki: 2
+	Czas całkowity: 17662[us]
+		Wątek 140424554428160 | czas: 5671[us]
+		Wątek 140424546035456 | czas: 5803[us]
+
+	Tryb: block | Wątki: 2
+	Czas całkowity: 184339[us]
+		Wątek 140151739893504 | czas: 172775[us]
+		Wątek 140151731500800 | czas: 170867[us]
+
+	Tryb: interleaved | Wątki: 2
+	Czas całkowity: 183081[us]
+		Wątek 140113208981248 | czas: 174661[us]
+		Wątek 140113200588544 | czas: 177372[us]
+
+
+	Tryb: sign | Wątki: 4
+	Czas całkowity: 9061[us]
+		Wątek 139808733943552 | czas: 1548[us]
+		Wątek 139808725550848 | czas: 2223[us]
+		Wątek 139808717158144 | czas: 3444[us]
+		Wątek 139808708765440 | czas: 1783[us]
+
+	Tryb: block | Wątki: 4
+	Czas całkowity: 118423[us]
+		Wątek 140306444150528 | czas: 94210[us]
+		Wątek 140306435757824 | czas: 112333[us]
+		Wątek 140306427365120 | czas: 95437[us]
+		Wątek 140306284754688 | czas: 112329[us]
+
+	Tryb: interleaved | Wątki: 4
+	Czas całkowity: 118860[us]
+		Wątek 139832778606336 | czas: 94880[us]
+		Wątek 139832770213632 | czas: 109033[us]
+		Wątek 139832761820928 | czas: 94831[us]
+		Wątek 139832753428224 | czas: 109272[us]
+
+
+	Tryb: sign | Wątki: 8
+	Czas całkowity: 10318[us]
+		Wątek 140049563899648 | czas: 1886[us]
+		Wątek 140049555506944 | czas: 2215[us]
+		Wątek 140049547114240 | czas: 2551[us]
+		Wątek 140049538721536 | czas: 2924[us]
+		Wątek 140049530328832 | czas: 2867[us]
+		Wątek 140049521936128 | czas: 3174[us]
+		Wątek 140049513543424 | czas: 1862[us]
+		Wątek 140049505150720 | czas: 1651[us]
+
+	Tryb: block | Wątki: 8
+	Czas całkowity: 87984[us]
+		Wątek 139920410064640 | czas: 83619[us]
+		Wątek 139920401671936 | czas: 82076[us]
+		Wątek 139920393279232 | czas: 80848[us]
+		Wątek 139920169498368 | czas: 82991[us]
+		Wątek 139920384886528 | czas: 84468[us]
+		Wątek 139920161105664 | czas: 78739[us]
+		Wątek 139920152712960 | czas: 82144[us]
+		Wątek 139920144320256 | czas: 82459[us]
+
+	Tryb: interleaved | Wątki: 8
+	Czas całkowity: 134365[us]
+		Wątek 140713816463104 | czas: 129398[us]
+		Wątek 140713808070400 | czas: 128468[us]
+		Wątek 140713731815168 | czas: 128653[us]
+		Wątek 140713597597440 | czas: 125802[us]
+		Wątek 140713723422464 | czas: 120013[us]
+		Wątek 140713715029760 | czas: 124721[us]
+		Wątek 140713706637056 | czas: 117951[us]
+		Wątek 140713698244352 | czas: 122564[us]
+
