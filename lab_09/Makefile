@@ -7,14 +7,11 @@ comp:
 all:
 	make clear
 	make comp
-	./main 4 sign baboon.pgm result_sign
-	./main 4 block baboon.pgm result_block
-	./main 4 interleaved baboon.pgm result_inter
-
+	./main 3 8
 
 run:
-	./main 4 block baboon.pgm result
-
+	./main 3 8
+	
 test:
 	make run
 
