@@ -45,16 +45,18 @@ int safe_send(string msg, int id){
     char buffer[MESSAGE_SIZE];
     strcpy(buffer, msg);
     pthread_mutex_lock(&clients.mutex_client);
-    if(fcntl(clients.fd[id], F_GETFD)==-1) {pthread_mutex_unlock(&clients.mutex_client); return -1;}
-    write(clients.fd[id], buffer, MESSAGE_SIZE);
+    if(fcntl(clients.fd[id], F_GETFD)==-1) {LOG("sending msg failed\n"); pthread_mutex_unlock(&clients.mutex_client); return -1;}
+    int res = send(clients.fd[id], buffer, MESSAGE_SIZE, MSG_NOSIGNAL);
+    if(res > 0) res = 0;
     pthread_mutex_unlock(&clients.mutex_client);
-    return 0;
+    return res;
 }
 
 void init_game(int client_id){
     pthread_mutex_lock(&clients.mutex_game);
     if(waiting_game_id == -1){// start new game
         LOG("send waiting msg\n");
+        print("%d waiting for second player\n", client_id);
         int res = safe_send("waiting for second player...\n", client_id);
         if(res==0){
             clients.games[client_id].second_player = -1;
@@ -62,7 +64,7 @@ void init_game(int client_id){
         }
     } else { // game exists
         int first_player;
-        LOG("starting game between %d & %d\n", waiting_game_id, client_id);
+        print("Starting game between %d & %d\n", waiting_game_id, client_id);
         if(random() % 2 == 0) first_player = waiting_game_id; else first_player = client_id;
         clients.games[waiting_game_id].second_player = client_id;
         clients.games[client_id].second_player = waiting_game_id;
@@ -128,6 +130,7 @@ void board_to_string(int* board, string buffer){
 
 void end_game(int winner_code, int id){
     int enemy = clients.games[id].second_player;
+    print("Game has ended (%d vs. %d)", enemy, id);
     if(winner_code != 2){
         int winner = enemy; 
         int loser = id;
@@ -159,7 +162,7 @@ void abandon_game(int abandoner){
 
 void advance_game(char* msg, int player_id){
     if(strcmp(msg, "end")==0){ // end game & remove client
-        LOG("game was abandoned by %d\n", player_id);
+        print("%d abandoned a game\n", player_id);
         abandon_game(player_id);
         remove_client(player_id);
         return;
@@ -179,16 +182,16 @@ void advance_game(char* msg, int player_id){
             } else {
                 char buffer[MESSAGE_SIZE];
                 board_to_string(board, buffer);
-                LOG("sending next board state to %d\n", enemy);
+                print("Sending next board state to %d\n", enemy);
                 safe_send(buffer, enemy);
             }
         } else {
-             LOG("sending bad move msg\n");
+             print("Sending bad move message\n");
             safe_send("bad move", player_id);
         }
         pthread_mutex_unlock(&clients.mutex_game);
     } else{
-        LOG("sending bad move msg\n");
+        print("Sending bad move message\n");
         safe_send("bad move", player_id);
     }
 }
@@ -280,10 +283,12 @@ void* connection_manager(void* arg){
 
         int client_fd = accept(socket, NULL, 0);
         LOG("trying to connect (fd=%d)\n", client_fd);
+        print("Connection request...\n");
         int client_id = -1;
 
         pthread_mutex_lock(&clients.mutex_client);
-        if(clients.count == SERVER_CLIENTS_LIMIT){ // check for free slot for client
+        for_i_up_to(SERVER_CLIENTS_LIMIT) if(clients.fd[i] == -1) client_id = i;
+        if(client_id == -1){ // check for free slot for client
             send_message(client_fd, "clients limit reached");
             safe_call(shutdown(client_fd, SHUT_RDWR));
             safe_call(close(client_fd));
@@ -302,7 +307,7 @@ void* connection_manager(void* arg){
                     client_id = i;
                     clients.count ++;
                     clients.fd[i] = client_fd; 
-                    LOG("client accepted | name: >%s<\n", msg_buffer); 
+                    print("new client accepted | name: >%s<\n", msg_buffer); 
                     strcpy(clients.name[i], msg_buffer);
                     send_message(client_fd, "ok");
                 }
@@ -322,20 +327,25 @@ void* ping_manager(void* arg){
         for_i_up_to(SERVER_CLIENTS_LIMIT){
             
             if(clients.fd[i] != -1){
-               // LOG("send ping\n");
                 int res = safe_send("ping", i);
                 if(res == -1)  {
-                    LOG("ping failed (id=%d)\n", i); 
+                    print("Ping failed (id=%d)\n", i);
                     abandon_game(i);
                     remove_client(i); 
                     continue;
                 }
                 usleep(PING_TIME);
+                wrng_msg:
                 res = recv(clients.fd[i], buffer, MESSAGE_SIZE, MSG_DONTWAIT);
-                if (res <= 0 or strcmp(buffer, "pong")!=0){
+                if (res <= 0){
+                    print("Ping failed (id=%d)\n", i);
                     LOG("ping failed (id=%d | fd=%d) | buffer: %s | res=%d\n", i,clients.fd[i], buffer, res);
                     abandon_game(i);
                     remove_client(i);
+                } 
+                if(strcmp(buffer, "pong")!=0){
+                     safe_send("repeat", i);
+                     goto wrng_msg;
                 }
             }
         }
@@ -357,16 +367,17 @@ void* game_manager(void* arg){
             fds[i].fd = clients.fd[i];
             fds[i].revents = 0;
         }
-        poll(fds, SERVER_CLIENTS_LIMIT, 300);
+
+        poll(fds, SERVER_CLIENTS_LIMIT, 1);
         for_i_up_to(SERVER_CLIENTS_LIMIT){
-            if((fds[i].revents & POLLIN) and not(fds[i].revents & POLLHUP) and clients.games[i].second_player != -1){ // data to read; game can be advanced
+            if((fds[i].revents & POLLIN) and not(fds[i].revents & POLLHUP) and (clients.games[i].second_player != -1)){ // data to read; game can be advanced
                 LOG("revents = %d\n", fds[i].revents);
-                LOG("game manager reading data (id=%d | fd=%d)\n", i,fds[i].fd);
+                LOG("game manager reading data (id=%d | fd=%d)\n", i, fds[i].fd);
                 int res = receive_message(fds[i].fd, buffer);
                 LOG("msg |%s|\n", buffer);
                 if(res == 0){
                     strcpy(buffer, "end");
-                }
+                } else if (strcmp(buffer, "pong") == 0) continue;
                 advance_game(buffer, i);
             }
         }

@@ -9,11 +9,19 @@ string server_IP;
 int input = 0;
 int connection_type;
 string local_socket_path_name;
+ char last_buffer[MESSAGE_SIZE];
+
+void close_client(){
+   LOG("close client\n");
+  // shutdown(server_socket_fd, SHUT_RDWR);
+   LOG("close\n");
+//   close(server_socket_fd);
+}
+
 
 void sigint_handler(){
-    printf("SIGINT\n");
-    // error("client name too long\n");
-    exit(EXIT_SUCCESS);
+    print("SIGINT handler\n");
+    exit(0);
 }
 
 void check_msg_res(int res){
@@ -66,25 +74,19 @@ bool handle_message(string msg){
         for(int i=8; i<11;i++) board[i] = msg[i-2];
         board[11] = '\n';
 
-        print("Board state:\n%s\nMake a move (1-9)\n>", board);
+        print("Board state:\n%s\n", board);
         return true;
     } else if(strcmp("bad move", msg)==0){
         print("wrong move\n>");
         return true;
-    } else{
+    } else if(strcmp(msg, "repeat")==0){
+        check_msg_res(send_message(server_socket_fd, last_buffer));
+    }else{
         print("Server message: %s\n>", msg);
     }
     return false;
 }
 
-void close_client(){
-    LOG("close client\n");
-  //  check_msg_res(send_message(server_socket_fd, "end"));
-//    shutdown(server_socket_fd, SHUT_RDWR);
-    LOG("close\n");
-   // safe_call(close(server_socket_fd));
-    // todo; nah
-}
 
 void* message_manager(void* arg){
     char buffer[MESSAGE_SIZE];
@@ -132,7 +134,7 @@ int main(int argc, char** argv) {
     char buffer[MESSAGE_SIZE];
     check_msg_res(send_message(server_socket_fd, myname));
     check_msg_res(receive_message(server_socket_fd, buffer));
-    if(strcmp(buffer, "ok") != 0) error("unexpected message from server\n");
+    if(strcmp(buffer, "ok") != 0) error("Failed to connect\n");
     LOG("first server msg: %s\n", buffer);
 
     pthread_mutex_lock(&mutex);
@@ -142,13 +144,17 @@ int main(int argc, char** argv) {
 
     forewer{
         pthread_cond_wait(&cond, &mutex); // unlock for input
-        print("take action (1-9: make move | 0: end game)\n>");
+        print("Take action (1-9: make move | 0: end game)\n>");
         scanf("%s", buffer); 
         input = buffer[0];
-        if(input == '0') exit(0);
-        buffer[1] = 0;
+        if(input == '0') {
+            strcpy(buffer, "end");
+        } else buffer[1] = 0;
         LOG("message manager sending: >%d<\n", buffer[0]);
+        strcpy(last_buffer, buffer);
         check_msg_res(send_message(server_socket_fd, buffer));
+        
+        if(input == '0') exit(0);
     }
 
     pthread_join(message_maganer_tid, NULL);

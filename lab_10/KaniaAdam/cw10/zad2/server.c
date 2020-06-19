@@ -31,7 +31,7 @@ int receive_message_from(int id, string buffer, bool block) {
     if(block) flags = 0;
     if(clients.connection_type[id] == LOCAL) 
         return recvfrom(local_server_socket_fd, buffer, MESSAGE_SIZE, flags, (struct sockaddr*) &clients.so_addr_un[id], &size);
-    else if(clients.connection_type[id] == LOCAL) 
+    else if(clients.connection_type[id] == INET) 
         return recvfrom(inet_server_socket_fd, buffer, MESSAGE_SIZE, flags, (struct sockaddr*) &clients.so_addr_in[id],  &size); // inet
     else error("Bad connection type | receive_message_from\n");
     return -1;
@@ -53,11 +53,11 @@ bool check_existance(string name){
 
 void exit_fun(){
     if(inet_server_socket_fd != -1) {
-        if ((close(inet_server_socket_fd)) == -1)       error("closing inet socket");
+        close(inet_server_socket_fd);
     }
     if(local_server_socket_fd != -1) {
-        if ((close(local_server_socket_fd)) == -1)       error("closing local socket");
-        if ((unlink(local_socket_path_name)) == -1)      error("unlinking local socket file");
+        close(local_server_socket_fd);
+        unlink(local_socket_path_name);
     }
 
 }
@@ -96,11 +96,10 @@ void init_game(int client_id){
 
 void remove_client(int id){
     pthread_mutex_lock(&clients.mutex_client);
-    int client_fd = clients.fd[id];
+ //   int client_fd = clients.fd[id];
     clients.fd[id] = -1;
     clients.name[id][0] = 0;
     if(waiting_game_id == id) waiting_game_id = -1;
-    close(client_fd);
     clients.connection_type[id] = -1;
     clients.count--;
     pthread_mutex_unlock(&clients.mutex_client);
@@ -160,6 +159,7 @@ void end_game(int winner_code, int id){
 }
 
 void abandon_game(int abandoner){
+        print("Game was abandoned by %d\n", abandoner);
         int enemy = clients.games[abandoner].second_player;
         clients.games[abandoner].second_player = -1;
         if(waiting_game_id == abandoner) waiting_game_id = -1;
@@ -171,6 +171,7 @@ void abandon_game(int abandoner){
 }
 
 void advance_game(char* msg, int player_id){
+    LOG("advance game id=%d|msg=%s\n", player_id, msg);
     if(strcmp(msg, "end")==0){ // end game & remove client
         LOG("game was abandoned by %d\n", player_id);
         abandon_game(player_id);
@@ -192,16 +193,16 @@ void advance_game(char* msg, int player_id){
             } else {
                 char buffer[MESSAGE_SIZE];
                 board_to_string(board, buffer);
-                LOG("sending next board state to %d\n", enemy);
+                print("sending next board state to %d\n", enemy);
                 send_message(enemy, buffer);
             }
         } else {
-             LOG("sending bad move msg\n");
+             print("sending bad move message\n");
             send_message(player_id, "bad move");
         }
         pthread_mutex_unlock(&clients.mutex_game);
     } else{
-        LOG("sending bad move msg\n");
+        print("sending bad move message\n");
         send_message(player_id, "bad move");
     }
 }
@@ -281,10 +282,10 @@ void* ping_manager(void* arg){
         for_i_up_to(SERVER_CLIENTS_LIMIT){
             
             if(clients.fd[i] != -1){
-               // LOG("send ping\n");
+                LOG("send ping\n");
                 int res = send_message(i, "ping");
                 if(res == -1)  {
-                    LOG("ping failed (id=%d)\n", i); 
+                    print("Ping failed (id=%d)\n", i);
                     abandon_game(i);
                     remove_client(i); 
                     continue;
@@ -293,6 +294,7 @@ void* ping_manager(void* arg){
                 res = receive_message_from(i, buffer, false);
                 if (res <= 0 or strcmp(&buffer[2], "pong")!=0){
                     LOG("ping failed (id=%d | fd=%d) | buffer: %s | res=%d\n", i,clients.fd[i], buffer, res);
+                    print("Ping failed (id=%d)\n", i);
                     abandon_game(i);
                     remove_client(i);
                 }
@@ -330,7 +332,7 @@ void* game_manager(void* arg){
 
                 strcpy(buffer, "clients limit reached");
                 socklen_t size = sizeof(struct sockaddr);
-                LOG("sending reply 'ok'...\n");
+                LOG("sending reply 'clients limit reached'...\n");
                 if(ADDR_TYPE(buffer) is LOCAL){ 
                     struct sockaddr_un soard;
                     char* local_path = strtok(&buffer[MSG_START], "|");
@@ -354,7 +356,7 @@ void* game_manager(void* arg){
 
                     sendto(inet_server_socket_fd, buffer, MESSAGE_SIZE, 0, (struct sockaddr*) &soard,  size); 
                 }
-                else error("Bad connection type | receive_message_from\n");
+              //  else error("Bad connection type | receive_message_from\n");
             
                 pthread_mutex_unlock(&clients.mutex_client);
                 continue;
@@ -363,7 +365,7 @@ void* game_manager(void* arg){
             // register client
             
             if(ADDR_TYPE(buffer) is LOCAL){
-                
+                LOG("registring local...\n");
                 char* local_path = strtok(&buffer[MSG_START], "|");
                 char* name_start = strtok(NULL, "|");
                 name_start -= c_size; *name_start = 0; name_start += c_size;
@@ -375,6 +377,7 @@ void* game_manager(void* arg){
                     strcpy(soard.sun_path, local_path);
 
                     sendto(inet_server_socket_fd, "name taken", MESSAGE_SIZE, 0, (struct sockaddr*) &soard,  sizeof(struct sockaddr_un)); // inet
+                    pthread_mutex_unlock(&clients.mutex_client);
                     continue;
                 }
                 strcpy(clients.name[free_id], name_start);
@@ -383,7 +386,7 @@ void* game_manager(void* arg){
                 strcpy(clients.so_addr_un[free_id].sun_path, local_path);
 
             } else if (ADDR_TYPE(buffer) is INET){
-                
+                LOG("addr inet\n");
                 char* client_ip = strtok(&buffer[MSG_START], "|");
                 char* ip_end = strtok(NULL, "|");
                 ip_end -= c_size; *ip_end = 0; ip_end += c_size;
@@ -392,6 +395,7 @@ void* game_manager(void* arg){
                 LOG("inet adress received: %s:%s | name=%s\n", client_ip, ip_end, name_start);
 
                 if(check_existance(name_start)){
+                    LOG("name taken\n");
                     struct sockaddr_in soard;
 
                     soard.sin_family = AF_INET;
@@ -399,6 +403,7 @@ void* game_manager(void* arg){
                     soard.sin_port = htons((in_port_t) atoi(ip_end));
 
                     sendto(inet_server_socket_fd, "name taken", MESSAGE_SIZE, 0, (struct sockaddr*) &soard,  sizeof(struct sockaddr_in)); // inet
+                    pthread_mutex_unlock(&clients.mutex_client);
                     continue;
                 }
 
@@ -423,15 +428,11 @@ void* game_manager(void* arg){
            init_game(free_id);
 
         } else if(TYPE(buffer) is GAME_MSG){
-            // todo
+            advance_game(&buffer[MSG_START], WHO(buffer)-1);
 
-
-            advance_game(&buffer[MSG_START], WHO(buffer));
-
-
-            pthread_cond_broadcast(&cond_ping);
-            pthread_cond_wait(&cond_ping, &mutex_ping);
         }
+        pthread_cond_broadcast(&cond_ping);
+        pthread_cond_wait(&cond_ping, &mutex_ping);
     }
 
     return (void*) 0;

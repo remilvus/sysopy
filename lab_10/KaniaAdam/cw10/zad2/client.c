@@ -13,15 +13,16 @@ struct sockaddr_in sa_inet;
 int input = 0;
 int connection_type;
 string local_socket_path_name;
+bool registered = false;
 
 
 int send_message(int socket_fd, const char message[MESSAGE_SIZE]) {
     char buffer[MESSAGE_SIZE];
     buffer[0] = GAME_MSG;
-    buffer[1] = myid; 
+    buffer[1] = myid+1; 
     strcpy(&buffer[2], message);
     if(connection_type == LOCAL) return sendto(socket_fd, buffer, MESSAGE_SIZE, 0, (struct sockaddr*) &sa_local, sizeof(sa_local));
-    else return sendto(socket_fd, buffer, MESSAGE_SIZE, 0,  (struct sockaddr*) &inet_port, sizeof(inet_port)); // inet
+    else return sendto(socket_fd, buffer, MESSAGE_SIZE, 0,  (struct sockaddr*) &sa_inet, sizeof(sa_inet)); // inet
 }
 
 int receive_message(string buffer) {
@@ -58,10 +59,9 @@ void server_connect(){
             error("cannot bind local socket");
 
         strcpy(sa_local.sun_path, local_socket_path_name);
-        connect(server_socket_fd, (struct sockaddr*) &sa_local, sizeof(sa_local));
-        perror(":c");
-        //  if ((connect(server_socket_fd, (struct sockaddr*) &sa_local, sizeof(sa_local))) == -1)  
-        //     error("cannot bind local socket");
+  //      connect(server_socket_fd, (struct sockaddr*) &sa_local, sizeof(sa_local));
+         if ((connect(server_socket_fd, (struct sockaddr*) &sa_local, sizeof(sa_local))) == -1)  
+            error("cannot bind local socket");
         strcpy(sa_local.sun_path, local_socket_path_name);
 
     } else if(connection_type == INET){
@@ -77,13 +77,14 @@ void server_connect(){
         sa_inet.sin_port = htons(my_inet_port);
         while ((bind(server_socket_fd, (struct sockaddr*) &sa_inet, sizeof(sa_inet))) == -1)  {
             my_inet_port = my_inet_port + 1;
-            sa_inet.sin_port = htons(my_inet_port);
+            if(my_inet_port > inet_port + 100) error("can't bind port\n");
+             sa_inet.sin_port = htons(my_inet_port);
         }
 
         sa_inet.sin_port = htons(inet_port);
-        connect(server_socket_fd, (struct sockaddr*) &sa_inet, sizeof(sa_inet));
-        //  if ((connect(server_socket_fd, (struct sockaddr*) &sa_inet, sizeof(sa_inet))) == -1)  
-        //     error("cannot bind inet socket");
+     //   connect(server_socket_fd, (struct sockaddr*) &sa_inet, sizeof(sa_inet));
+         if ((connect(server_socket_fd, (struct sockaddr*) &sa_inet, sizeof(sa_inet))) == -1)  
+            error("cannot bind inet socket");
 
     } else {
         error("wont happen\n");
@@ -95,6 +96,7 @@ bool handle_message(string msg){
         check_msg_res(send_message(server_socket_fd, "pong"));
     }else if(strcmp(msg, "die")==0){
         print("Closing client...\n");
+        registered = false;
         exit(0);
     }else if(strlen(msg) == 9){ // received game
         char board[12];
@@ -105,7 +107,7 @@ bool handle_message(string msg){
         for(int i=8; i<11;i++) board[i] = msg[i-2];
         board[11] = '\n';
 
-        print("Board state:\n%s\nMake a move (1-9)\n>", board);
+        print("Board state:\n%s\n", board);
         return true;
     } else if(strcmp("bad move", msg)==0){
         print("wrong move\n>");
@@ -118,7 +120,7 @@ bool handle_message(string msg){
 
 void close_client(){
     LOG("close client\n");
-    send_message(server_socket_fd, "end");
+    if(registered) send_message(server_socket_fd, "end");
     unlink(myname);
     close(server_socket_fd);
 }
@@ -176,14 +178,12 @@ int main(int argc, char** argv) {
     }
     else {
         buffer[1] = INET;
-        LOG("addr type = %d\n", ADDR_TYPE(buffer));
         sprintf(&buffer[MSG_START], "%s|%d|%s", server_IP, my_inet_port,  myname);
     }
 
     LOG("registering...\n");
     if(connection_type == LOCAL){
          sendto(server_socket_fd, buffer, MESSAGE_SIZE, 0, (struct sockaddr*) &sa_local, sizeof(sa_local));
-         perror("lcl msg\n");
          LOG("send local msg\n");
     }
     else {
@@ -191,14 +191,14 @@ int main(int argc, char** argv) {
         LOG("%d, %s, %d\n", server_socket_fd, buffer, sa_inet.sin_port);
         LOG("addr type = %d\n", ADDR_TYPE(buffer));
         sendto(server_socket_fd, buffer, MESSAGE_SIZE, 0,  (struct sockaddr*) &sa_inet, sizeof(sa_inet));
-        perror("ehh\n");
     }
 
     check_msg_res(receive_message(buffer));
     myid = buffer[2];
     buffer[2] = 0;
-    if(strcmp(buffer, "ok") != 0){buffer[2] = myid; LOG("msg=%s\n", buffer); error("unexpected message from server\n");}
+    if(strcmp(buffer, "ok") != 0){buffer[2] = myid; LOG("msg=%s\n", buffer); error("failed to connect\n");}
     LOG("first server msg: %s\n", buffer);
+    registered = true;
 
     pthread_mutex_lock(&mutex);
     pthread_t message_maganer_tid;

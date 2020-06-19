@@ -21,24 +21,16 @@
 #define print       printf
 // #define _POSIX_C_SOURCE 1
 // #define _XOPEN_SOURCE 700
-#define DEBUG           true
+#define DEBUG           false
 #define LOG             if(DEBUG)printf
 #define bool            short
 
-#define SERVER_NAME             "game_server"
-#define SERVER_CLIENTS_LIMIT    4
+#define SERVER_CLIENTS_LIMIT    16
 #define SOCKET_PROTOCOL         SOCK_STREAM
 #define MESSAGE_SIZE            128
-#define PING_TIME               100000 // time for reply (in microseconds)
-#define INET                    111
+#define PING_TIME               200000 // time for reply (in microseconds)
+#define INET                    2137
 #define LOCAL                   42
-#define REGISTER_MSG            'r'
-#define GAME_MSG                'g'
-#define TYPE(X)                 X[0]
-#define is                      ==
-#define WHO(X)                  X[1]
-#define ADDR_TYPE(X)            X[1]
-#define MSG_START               2
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -76,17 +68,17 @@ typedef struct clients_t{
     int fd[SERVER_CLIENTS_LIMIT];
     string name[SERVER_CLIENTS_LIMIT];
     game_t games[SERVER_CLIENTS_LIMIT];
-    struct sockaddr_un so_addr_un[SERVER_CLIENTS_LIMIT];
-    struct sockaddr_in so_addr_in[SERVER_CLIENTS_LIMIT];
-    int connection_type[SERVER_CLIENTS_LIMIT];
     int count;
     pthread_mutex_t mutex_client;
     pthread_mutex_t mutex_game;
 } clients_t;
 
-typedef struct message_t{
-    char msg[MESSAGE_SIZE];
-    char id;
-} message_t;
+int send_message(int socket_fd, const char message[MESSAGE_SIZE]) {
+    return write(socket_fd, message, MESSAGE_SIZE);
+}
+
+int receive_message(int socket_fd, char message[MESSAGE_SIZE]) {
+    return read(socket_fd, message, MESSAGE_SIZE);
+}
 
 #endif

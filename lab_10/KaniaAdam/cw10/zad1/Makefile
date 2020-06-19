@@ -11,13 +11,17 @@ all:
 	make run
 
 server:
-	./server
+	./server 1234 server_path
 
-client:
-	./client
+client_local:
+	./client name_local local server_path
+
+client_inet:
+	./client name_inet inet 127.0.0.1:1234
+
 
 run:
-	./server
+	./server 1234 server_path
 	
 test:
 	make run
@@ -26,5 +30,5 @@ clean:
 	make clear
 
 clear:
-	rm -f main
-	rm -f result
+	rm -f server
+	rm -f client
